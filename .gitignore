@@ -1,0 +1,6 @@
+# local Python virtual environment
+venv/
+
+# local build directories
+dist/
+src/telepack.egg-info/

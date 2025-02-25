@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telepack"
+authors = [
+  { name="David Bower, Koales Ltd.", email="open-source@koales.co.uk" },
+]
+description = "Add observability to your project or Jupyter Notebook. Even more easily surface telemetry stats to New Relic"
+readme = "README.rst"
+requires-python = ">=3.7"
+keywords = ["observability", "telemetry", "timing", "trace", "span", "new relic", "jupyter"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Topic :: System :: Monitoring",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "newrelic-telemetry-sdk >= 0.6.0",
+]
+dynamic = [
+    "version"
+]
+
+[project.urls]
+Homepage = "https://github.com/koales/telepack"
+Issues = "https://github.com/koales/telepack/issues"
+            
+[tool.setuptools_scm]
+# can be empty if no extra settings are needed, presence enables setuptools-scm
