@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .metric import GaugeMetric, LLMTokensMetric, MetricLogger, MetricLoggerCM, OpenAICompletionMetric
 from .trace import timed, TimedContext, TraceLogger
 from importlib.metadata import version, PackageNotFoundError
 
@@ -22,6 +23,12 @@ except PackageNotFoundError:
     pass
 
 __all__ = (
+    "GaugeMetric",
+    "LLMTokensMetric",
+    "MetricLogger",
+    "MetricLoggerCM",
+    "OpenAICompletionMetric",
+
     "timed",
     "TimedContext",
     "TraceLogger",

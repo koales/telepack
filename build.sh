@@ -11,5 +11,8 @@ python -m build
 # Upload to test PyPI
 python -m twine upload --verbose --repository testpypi dist/*
 
+# to import the test deployment into a Python script
+# pip install --index-url https://test.pypi.org/simple/ telepack
+
 # Upload to production PyPI
-# python -m twine upload --non-interactive dist/*
+# python -m twine upload --verbose dist/*

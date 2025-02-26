@@ -5,36 +5,52 @@
 telepack
 ========
 
-`telepack` makes adding observability to your Python code as effortless as possible. It provides a high-level abstraction over New Relic's `newrelic-telemetry-sdk <https://pypi.org/project/newrelic-telemetry-sdk/>`_ (thanks to New Relic for providing an SDK for their API). Telemetry data is then available for analysis in the New Relic One platform.
+`telepack` makes adding observability to your Python code as effortless as possible. It provides a high-level abstraction over New Relic's `newrelic-telemetry-sdk <https://pypi.org/project/newrelic-telemetry-sdk/>`_ (thanks to New Relic for providing an SDK for their API). Telemetry data, including traces, spans, and custom metrics, is then available for analysis in the New Relic One platform.
 
 A primary use case for this library is expected to be by data scientists and software engineers working with Jupyter Notebooks.  `telepack` is designed to be straightforward, unobtrusive, and quick to implement, allowing you to focus on your core tasks while seamlessly adding observability.  Of course, you can use `telepack` anywhere you find it helpful!
 
-`telepack` handles the complexities of trace and span management, enabling you to easily instrument your code with minimal effort.  `telepack`'s goal is to increase the democratisation of observability for everyone.
+`telepack` handles the complexities of trace, span, and metric management, enabling you to easily instrument your code with minimal effort. `telepack`'s goal is to increase the democratisation of observability for everyone.
 
 Pre-requisites
 --------------
 
 To use `telepack`, you will need a New Relic account and an API key. If you don't have a New Relic account, you can sign up for a free account at `New Relic <https://newrelic.com/>`_.
 
-Brief Overview of Traces and Spans
------------------------------------
+Brief Overview of Traces, Spans, and Metrics
+--------------------------------------------
 
-Understanding the basic concepts of tracing will be helpful.
+Understanding the basic concepts of tracing and metrics will be helpful.
 
 A **trace** represents a single operation or task (or subtask) that you want to monitor. It is composed of one or more **spans**. A span is a single unit of work (or subtask) *within* a trace.  For example, a trace might represent a complete data processing pipeline, and each span could represent a single step in that pipeline.
+
+**Metrics** are numerical measurements that track the performance and behavior of your application over time. They provide insights into key aspects of your system, such as resource utilization, latency, and throughput, or number of tokens used by an language model in undersanding your prompt and in generating a completion response.
 
 Key Features
 ------------
 
-* **Effortless Instrumentation:** Provides two simple interfaces: the `@timed` decorator for timing function calls and the `TimedContext` context manager for timing arbitrary code blocks.  See the examples below.
-* **Automatic Trace and Span Management:** `telepack` automatically creates traces (collections of spans), manages the lifecycle of spans, and uploads them to New Relic.  This automatic behavior is the default, but you can override it if needed (see Advanced Usage).
-* **Automatic Trace Start Detection:** A new trace begins when a top-level span (a span without a parent) is initiated.  Calling a decorated function or entering a timed context outside of any existing timed block will automatically start a new trace.
+Span and Traces
+~~~~~~~~~~~~~~~
+
+* **Effortless Instrumentation:** Provides two simple interfaces: the `@timed` decorator for timing function calls and the `TimedContext` context manager for timing arbitrary code blocks.
+* **Automatic Trace and Span Management:** `telepack` automatically creates traces (collections of spans), manages the lifecycle of spans, and uploads them to New Relic. This automatic behavior is the default, but you can override it if needed (see Advanced Usage).
+* **Automatic Trace Start Detection:** A new trace begins when a top-level span (a span without a parent) is initiated. Calling a decorated function or entering a timed context outside of any existing timed block will automatically start a new trace.
 * **Nested Span Support:** Parent-child span relationships are captured automatically, preserving the hierarchical structure of your code's execution within New Relic. This provides a clear visual representation of your code's execution flow.
 * **Simplified Timing:** Timing a function is as simple as adding the `@timed` decorator before the function definition. The span is automatically named with the function's name, or you can provide a custom name.
-* **Flexible Configuration:** You can define timed functions *before* configuring the logger.  `telepack` will queue the spans until the logger is configured. This lets you organize your code as you prefer.
+* **Flexible Configuration:** You can define timed functions *before* configuring the logger. `telepack` will queue the spans until the logger is configured. This lets you organize your code as you prefer.
+* **Manual Processing (Optional, Advanced):** While automatic processing is recommended for simplicity, manual control is available if you need more fine-grained control.
+
+Metrics
+~~~~~~~
+
+* **Metric Logging:** Send custom metrics to New Relic to monitor application performance and behavior. Includes support for gauge metrics, LLM token metrics, and OpenAI completion metrics.
+* **Metric Batching and Individual Sends:** Configure `telepack` to send metrics in batches or individually as they are logged.
+* **Metric Context Manager:** Use the `MetricLoggerCM` context manager for convenient metric logging and automatic flushing.
+
+Common Features
+~~~~~~~~~~~~~~~
+
 * **EU Region Support:** The EU (Europe) region API endpoint for New Relic is automatically configured when you specify the `eu_hosted` flag.
-* **Kaggle Secrets Integration (Optional):** When working in Kaggle Notebooks, the New Relic API key can be automatically retrieved from Kaggle Secrets (best practice for keeping screts secret).
-* **Manual Processing (Optional, Advanced):**  While automatic processing is recommended for simplicity, manual control is available if you need more fine-grained control.
+* **Kaggle Secrets Integration (Optional):** When working in Kaggle Notebooks, the New Relic API key can be automatically retrieved from Kaggle Secrets (best practice for keeping secrets secret).
 
 Traces and Spans in New Relic
 -----------------------------
@@ -49,7 +65,7 @@ Installation
 
 .. code-block:: bash
 
-   pip install telepack
+    pip install telepack
 
 This command installs `telepack` and all its dependencies, including `newrelic-telemetry-sdk`.
 
@@ -59,55 +75,89 @@ Usage
 Configuration
 ~~~~~~~~~~~~~
 
-The ``TraceLogger`` *must* be initialized before spans can be sent to New Relic.
+The ``TraceLogger`` and ``MetricLogger`` *must* be initialized before spans and metrics can be sent to New Relic.
 
-**Important Note:** You can decorate functions *before* configuring `TraceLogger`. This allows you flexibility in how you structure your code.
+**Important Note:** For tracing, you can decorate functions *before* configuring `TraceLogger`. This allows you flexibility in how you structure your code.
 
 .. code-block:: python
 
-   from telepack import TraceLogger
+    from telepack import TraceLogger, MetricLogger
 
-   tl = TraceLogger(
-           "my_service_name",  # Your service name
-           "my_host",        # Your host name
-           use_kaggle_secret=True,  # Set to True to use Kaggle Secrets
-           licence_key_secret_name="NEW_RELIC_LICENSE_KEY",  # Name of your Kaggle Secret
-           eu_hosted=True # Set to True if your New Relic account is EU hosted
-           )
+    tl = TraceLogger(
+        "my_service_name",  # Your service name
+        "my_host",          # Your host name
+        use_kaggle_secret=True,  # Set to True to use Kaggle Secrets
+        licence_key_secret_name="NEW_RELIC_LICENSE_KEY",  # Name of your Kaggle Secret
+        eu_hosted=True # Set to True if your New Relic account is EU hosted
+    )
 
-   # Or, provide the license key directly:
-   # tl = TraceLogger("my_service_name", "my_host", license_key="YOUR_NEW_RELIC_LICENSE_KEY")
+    # Or, provide the license key directly:
+    # tl = TraceLogger("my_service_name", "my_host", license_key="YOUR_NEW_RELIC_LICENSE_KEY")
+
+    ml = MetricLogger(
+        use_kaggle_secret=True,
+        license_key_secret_name="NEW_RELIC_LICENSE_KEY",
+        eu_hosted=True,
+        metric_prefix="my_prefix" # Optional metric prefix to be prefixed to all metric names
+    )
 
 Using the ``@timed`` decorator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   from telepack import timed
+    from telepack import timed
 
-   @timed()  # Times the function; span name defaults to the function name
-   def my_function():
-       # Your code here
-       ...
+    @timed()  # Times the function; span name defaults to the function name
+    def my_function():
+        # Your code here
+        ...
 
-   @timed("My Custom Span Name")  # Times the function with a custom span name
-   def another_function():
-       # Your code here
-       ...
+    @timed("My Custom Span Name")  # Times the function with a custom span name
+    def another_function():
+        # Your code here
+        ...
 
-   my_function()
-   another_function()
+    my_function()
+    another_function()
 
 Using the ``TimedContext`` context manager
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   from telepack import TimedContext
+    from telepack import TimedContext
 
-   with TimedContext("My Code Block"):
-       # Your code here
-       ...
+    with TimedContext("My Code Block"):
+        # Your code here
+        ...
+
+Metric Logging
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    from telepack import MetricLogger, GaugeMetric, LLMTokensMetric, OpenAICompletionMetric, MetricLoggerCM
+    from kaggle_secrets import UserSecretsClient
+    from openai import OpenAI
+
+    ml = MetricLogger(use_kaggle_secret=True, license_key_secret_name="NEW_RELIC_LICENSE_KEY", eu_hosted=True, metric_prefix="example")
+
+    ml.log(GaugeMetric("test_metric", 42, "Units"))
+    ml.log(GaugeMetric("test_metric", 59, "Units", {"key1": "value1", "key2": "value2"}))
+    ml.log(LLMTokensMetric("gpt-2", "inference", 1000))
+    ml.log(LLMTokensMetric("gpt-2", "inference", 1000, tags={"key1": "value1", "key2": "value2"}))
+
+    # Example of logging OpenAI completion metrics
+    OPENAI_BASE_URL = "https://api.scaleway.ai/v1"
+    openai_key = UserSecretsClient().get_secret("OPENAI_API_KEY")
+    openai = OpenAI(base_url=OPENAI_BASE_URL, api_key=openai_key)
+    completion = openai.chat.completions.create(model="llama-3.1-8b-instruct", messages=[{"role": "user", "content": "Hello"}])
+    ml.log(OpenAICompletionMetric(completion))
+
+    # Using the MetricLoggerCM context manager for automatic flushing
+    with MetricLoggerCM(ml):
+        ml.log(GaugeMetric("context_metric", 100, "Count"))
 
 Advanced Usage
 --------------
@@ -196,42 +246,45 @@ Example
 
 .. code-block:: python
 
-   from telepack import TraceLogger, timed, TimedContext
-   import time
+    from telepack import TraceLogger, timed, TimedContext, MetricLogger, GaugeMetric, LLMTokensMetric, OpenAICompletionMetric, MetricLoggerCM
+    import time
+    from kaggle_secrets import UserSecretsClient
+    from openai import OpenAI
 
-   @timed()
-   def task_one():
-       time.sleep(0.5)
-       with TimedContext("Subtask"):
-           time.sleep(0.2)
-       time.sleep(0.3)
+    @timed()
+    def task_one():
+        time.sleep(0.5)
+        with TimedContext("Subtask"):
+            time.sleep(0.2)
+        time.sleep(0.3)
 
-   @timed("Task Two")
-   def task_two():
-       time.sleep(1)
+    @timed("Task Two")
+    def task_two():
+        time.sleep(1)
 
-   tl = TraceLogger(
-           "my_service_name",  # Your service name
-           "my_host",        # Your host name
-           license_key="YOUR_NEW_RELIC_LICENSE_KEY",  # Set to your New Relic API license key
-           )
+    tl = TraceLogger(
+        "my_service_name",  # Your service name
+        "my_host",          # Your host name
+        license_key="YOUR_NEW_RELIC_LICENSE_KEY",  # Set to your New Relic API license key
+    )
 
-   task_one()
-   task_two()
+    task_one()
+    task_two()
 
-License
--------
+    ml = MetricLogger(use_kaggle_secret=True, license_key_secret_name="NEW_RELIC_LICENSE_KEY", eu_hosted=True, metric_prefix="example")
 
-Copyright 2025 Koales Ltd.
+    ml.log(GaugeMetric("test_metric", 42, "Units"))
+    ml.log(GaugeMetric("test_metric", 59, "Units", {"key1": "value1", "key2": "value2"}))
+    ml.log(LLMTokensMetric("gpt-2", "inference", 1000))
+    ml.log(LLMTokensMetric("gpt-2", "inference", 1000, tags={"key1": "value1", "key2": "value2"}))
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+    # Example of logging OpenAI completion metrics
+    OPENAI_BASE_URL = "https://api.scaleway.ai/v1"
+    openai_key = UserSecretsClient().get_secret("OPENAI_API_KEY")
+    openai = OpenAI(base_url=OPENAI_BASE_URL, api_key=openai_key)
+    completion = openai.chat.completions.create(model="llama-3.1-8b-instruct", messages=[{"role": "user", "content": "Hello"}])
+    ml.log(OpenAICompletionMetric(completion))
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+    # Using the MetricLoggerCM context manager for automatic flushing
+    with MetricLoggerCM(ml):
+        ml.log(GaugeMetric("context_metric", 100, "Count"))
