@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial, wraps
 from newrelic_telemetry_sdk import Span, SpanClient
 from .endpoints import TRACE_API_HOST_EU
-import functools
 
 __all__ = (
     "timed",
@@ -184,56 +184,59 @@ class TraceLogger(object):
             "host": TraceLogger._client_host,
         }
 
-def timed(span_name=None):
+def timed(func=None, *, span_name=None):
     """Decorator to log the time taken by the decorated function"""
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Just run the wrapped function if TraceLogger is not active
-            if not TraceLogger.is_enabled():
-                return func(*args, **kwargs)
+    # Allow usage with and without optional arguments
+    # If the decorator is used with parentheses, func will be None
+    if func is None:
+        return partial(timed, span_name=span_name)
 
-            TraceLogger.guard_is_configured()
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # Just run the wrapped function if TraceLogger is not active
+        if not TraceLogger.is_enabled():
+            return func(*args, **kwargs)
+
+        TraceLogger.guard_is_configured()
+        
+        # Use the name of the function being decorated as the span name by default, otherwise use the provided name
+        local_span_name = span_name or func.__name__
+
+        span_kwargs = {
+            'name': local_span_name,
+            'tags': TraceLogger.common_span_attributes()
+            }
+
+        # Set the parent span ID if there is one
+        parent_span_id = TraceLogger.get_span_parent_id()
+        if parent_span_id is not None:
+            span_kwargs['parent_id'] = parent_span_id
+
+        # Combine all spans from the same execution run together into a single trace
+        if TraceLogger.trace_id is not None:
+            span_kwargs['trace_id'] = TraceLogger.trace_id
+        
+        with Span(**span_kwargs) as span:
+            # Keep the trace ID consistent across all spans within a trace
+            # A trace is a set of one or more spans, connected by a common trace ID
+            # When executed initially, we will not have a retained trace ID, i.e. this is
+            # the first span in a series of spans which together make up a trace
+            if TraceLogger.trace_id is None:
+                TraceLogger.trace_id = span['trace.id']
+
+            # In case the decorated function itself includes a function call that is also decorated,
+            # push this span's ID onto the parent stack
+            TraceLogger.push_span_parent_id(span['id'])
+
+            # execute the decorated function
+            result = func(*args, **kwargs)
             
-            # Use the name of the function being decorated as the span name by default, otherwise use the provided name
-            local_span_name = span_name or func.__name__
+            # Remove this span's ID from the parent stack
+            TraceLogger.pop_span_parent_id()
 
-            span_kwargs = {
-                'name': local_span_name,
-                'tags': TraceLogger.common_span_attributes()
-                }
-
-            # Set the parent span ID if there is one
-            parent_span_id = TraceLogger.get_span_parent_id()
-            if parent_span_id is not None:
-                span_kwargs['parent_id'] = parent_span_id
-
-            # Combine all spans from the same execution run together into a single trace
-            if TraceLogger.trace_id is not None:
-                span_kwargs['trace_id'] = TraceLogger.trace_id
-            
-            with Span(**span_kwargs) as span:
-                # Keep the trace ID consistent across all spans within a trace
-                # A trace is a set of one or more spans, connected by a common trace ID
-                # When executed initially, we will not have a retained trace ID, i.e. this is
-                # the first span in a series of spans which together make up a trace
-                if TraceLogger.trace_id is None:
-                    TraceLogger.trace_id = span['trace.id']
-
-                # In case the decorated function itself includes a function call that is also decorated,
-                # push this span's ID onto the parent stack
-                TraceLogger.push_span_parent_id(span['id'])
-
-                # execute the decorated function
-                result = func(*args, **kwargs)
-                
-                # Remove this span's ID from the parent stack
-                TraceLogger.pop_span_parent_id()
-
-            TraceLogger.log_span(span)
-            return result
-        return wrapper
-    return decorator
+        TraceLogger.log_span(span)
+        return result
+    return wrapper
 
 class TimedContext(object):
     def __init__(self, span_name):

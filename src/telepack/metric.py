@@ -28,6 +28,9 @@ class MetricLogger(object):
     _license_key = None
     _api_host = None
 
+    _client_service_name = None
+    _client_host = None
+
     _metric_prefix = ""
     _metric_client = None
     _metric_batch = []
@@ -39,6 +42,8 @@ class MetricLogger(object):
     
     def __init__(
         self,
+        client_service_name=None,
+        client_host=None,
         license_key=None,
         use_kaggle_secret=False,
         license_key_secret_name=None,
@@ -60,6 +65,9 @@ class MetricLogger(object):
         
         if eu_hosted:
             self._api_host = METRIC_API_HOST_EU
+
+        self._client_service_name = client_service_name
+        self._client_host = client_host
 
         self._metric_prefix = metric_prefix
         self._batch_send = batch_send
@@ -89,12 +97,25 @@ class MetricLogger(object):
             # We don't need the license key anymore, so clear it
             self._license_key = None
 
+    def common_attributes(self):
+        common = {}
+        
+        if self._client_service_name is not None:
+            common["service.name"] = self._client_service_name
+        if self._client_host is not None:
+            common["host"] = self._client_host
+            
+        return common
+
     def log(self, metric):
         # Do not log metrics if the logger is not active
         if not self.is_enabled():
             return
 
         metric['name'] = self.format_metric_name(metric['name'])
+
+        # augment metric's custom attributes with common attributes
+        metric['attributes'] = {**metric.get('attributes', {}), **self.common_attributes()}
 
         if self._batch_send:
             self._metric_batch.append(metric)

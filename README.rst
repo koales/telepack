@@ -108,12 +108,12 @@ Using the ``@timed`` decorator
 
     from telepack import timed
 
-    @timed()  # Times the function; span name defaults to the function name
+    @timed  # Times the function; span name defaults to the function name
     def my_function():
         # Your code here
         ...
 
-    @timed("My Custom Span Name")  # Times the function with a custom span name
+    @timed(span_name="My Custom Span Name")  # Times the function with a custom span name
     def another_function():
         # Your code here
         ...
@@ -200,7 +200,7 @@ By default, spans are collected and uploaded to New Relic in batches. You can co
 
 .. code-block:: python
 
-   from telepack import TraceLogger
+   from telepack import TraceLogger, timed
 
    tl = TraceLogger(
            "my_service_name",  # Your service name
@@ -209,7 +209,7 @@ By default, spans are collected and uploaded to New Relic in batches. You can co
            batch_send=False   # Set to False to send spans individually
            )
 
-   @timed()
+   @timed
    def my_function():
        # Your code here
        ...
@@ -223,7 +223,7 @@ By default (in batch mode), spans are sent to New Relic when a trace completes. 
 
 .. code-block:: python
 
-   from telepack import TraceLogger
+   from telepack import TraceLogger, timed
 
    tl = TraceLogger(
            "my_service_name",  # Your service name
@@ -232,7 +232,7 @@ By default (in batch mode), spans are sent to New Relic when a trace completes. 
            auto_flush=False   # Set to False to disable automatic flushing
            )
 
-   @timed()
+   @timed
    def my_function():
        # Your code here
        ...
@@ -251,14 +251,14 @@ Example
     from kaggle_secrets import UserSecretsClient
     from openai import OpenAI
 
-    @timed()
+    @timed
     def task_one():
         time.sleep(0.5)
         with TimedContext("Subtask"):
             time.sleep(0.2)
         time.sleep(0.3)
 
-    @timed("Task Two")
+    @timed(span_name="Task Two")
     def task_two():
         time.sleep(1)
 
